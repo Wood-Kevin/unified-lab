@@ -1,0 +1,84 @@
+services:
+  # Tier 1: The Database Engine (Fully Segmented)
+  metrics-db:
+    image: postgres:15-alpine
+    container_name: database-tier
+    environment:
+      POSTGRES_DB: telemetry
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_password
+    volumes:
+      # Named volume keeps DB records alive on your 100GB drive
+    - pgdata:/var/lib/postgresql/data
+    # REMOVED host ports mapping to keep the database completely secure internally
+    networks:
+    - backend-net
+
+  # Tier 2: The Multi-Threaded API Engine
+  telemetry-app:
+    build: ./app
+    container_name: app-tier
+    # Explicitly run our updated web/metrics api server
+    command: ["python", "-u", "/usr/src/app/app.py"] 
+    volumes:
+      - ./app.py:/usr/src/app/app.py
+    ports:
+      - "5000:5000" # Exposes API & Prometheus metrics endpoint to the host
+    depends_on:
+      - metrics-db
+    networks:
+      - backend-net
+      - frontend-net
+
+  # Tier 3: The User Interface Web Server
+  web-dashboard:
+    build: .
+    container_name: web-tier
+    ports:
+    - "8080:8080"
+    volumes:
+    - ./dashboard.py:/usr/src/app/dashboard.py
+    command: ["python", "-u", "/usr/src/app/dashboard.py"]
+    depends_on:
+    - metrics-db
+    networks:
+    - frontend-net
+
+  # Observability Core: Prometheus Time-Series Storage
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: metrics-storage
+    volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    - promdata:/prometheus
+    command: 
+    - '--config.file=/etc/prometheus/prometheus.yml'
+    - '--storage.tsdb.path=/prometheus'
+    ports:
+    - "9090:9090" # Exposes the Prometheus UI so we can access it over MagicDNS
+    networks:
+    - backend-net
+    restart: always
+
+  grafana:
+    image: grafana/grafana-oss:10.2.0
+    container_name: metrics-visualizer
+    ports:
+      - "3001:3000" # Exposes the Grafana dashboard portal
+    volumes:
+      - grafanadata:/var/lib/grafana
+    networks:
+      - backend-net
+      - frontend-net
+    restart: always
+
+volumes:
+  pgdata:
+  promdata:
+  grafanadata:
+
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
