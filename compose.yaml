@@ -16,7 +16,7 @@ services:
 
   # Tier 2: The Multi-Threaded API Engine
   telemetry-app:
-    build: ./app
+    build: .
     container_name: app-tier
     # Explicitly run our updated web/metrics api server
     command: ["python", "-u", "/usr/src/app/app.py"] 

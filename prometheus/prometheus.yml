@@ -1,9 +1,0 @@
-global:
-  scrape_interval: 5s # How frequently to pull metrics
-
-scrape_configs:
-  - job_name: 'telemetry-pipeline'
-    static_configs:
-      # We use the container name 'telemetry-app' because Docker 
-      # handles internal DNS names inside our virtual network automatically
-      - targets: ['telemetry-app:5000']

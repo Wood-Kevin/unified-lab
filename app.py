@@ -108,9 +108,26 @@ def get_json_load():
 def metrics():
     """Serves raw real-time metrics in the standard Prometheus exposition format."""
     try:
-        # Sample the live kernel metrics directly for the scraper
+        # 1. Sample the live kernel load metrics
         load_1, load_5, load_15 = os.getloadavg()
         
+        # 2. Extract memory stats directly from the kernel
+        mem_total = 0
+        mem_available = 0
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if 'MemTotal:' in line:
+                    mem_total = int(line.split()[1])
+                elif 'MemAvailable:' in line:
+                    mem_available = int(line.split()[1])
+                # Stop parsing early once we have both values
+                if mem_total and mem_available:
+                    break
+        
+        # Calculate used percentage safely
+        mem_pct = ((mem_total - mem_available) / mem_total) * 100 if mem_total else 0
+        
+        # 3. Append to output string
         output = (
             "# HELP system_load_1min Linux kernel 1-minute load average\n"
             "# TYPE system_load_1min gauge\n"
@@ -120,7 +137,12 @@ def metrics():
             f"system_load_5min {load_5}\n\n"
             "# HELP system_load_15min Linux kernel 15-minute load average\n"
             "# TYPE system_load_15min gauge\n"
-            f"system_load_15min {load_15}\n"
+            f"system_load_15min {load_15}\n\n"
+            
+            # New Metric Entry
+            "# HELP system_memory_usage_percent Percentage of system memory currently utilized\n"
+            "# TYPE system_memory_usage_percent gauge\n"
+            f"system_memory_usage_percent {mem_pct:.2f}\n"
         )
         return output, 200, {'Content-Type': 'text/plain; version=0.0.4; charset=utf-8'}
     except Exception as e:
