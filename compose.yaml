@@ -50,6 +50,7 @@ services:
     container_name: metrics-storage
     volumes:
     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    - ./prometheus/rules:/etc/prometheus/rules
     - promdata:/prometheus
     command: 
     - '--config.file=/etc/prometheus/prometheus.yml'
@@ -60,6 +61,19 @@ services:
     - backend-net
     restart: always
 
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    ports:
+      - "9093:9093"
+    networks:
+      - backend-net
+    restart: always
+
   grafana:
     image: grafana/grafana-oss:10.2.0
     container_name: metrics-visualizer
@@ -67,6 +81,8 @@ services:
       - "3001:3000" # Exposes the Grafana dashboard portal
     volumes:
       - grafanadata:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
     networks:
       - backend-net
       - frontend-net

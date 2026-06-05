@@ -1,0 +1,47 @@
+groups:
+  - name: unified-lab
+    rules:
+      - alert: CollectorSilent
+        expr: time() - collector_last_write_unix > 10
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Collector thread has stopped writing"
+          description: "No row inserted for {{ $value | humanizeDuration }}."
+
+      - alert: DatabaseDown
+        expr: db_connected == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection lost"
+          description: "db_connected has been 0 for more than 15 seconds."
+
+      - alert: HighErrorRate
+        expr: rate(flask_requests_total{http_status_code=~"5.."}[1m]) > 0.01
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate"
+          description: "5xx rate is {{ $value | humanize }} req/s on route {{ $labels.route }}."
+
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.95, sum by(le, route)(rate(flask_request_duration_seconds_bucket[5m]))) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 request latency above 500ms"
+          description: "p95 latency for {{ $labels.route }} is {{ $value | humanizeDuration }}."
+
+      - alert: TableGrowthStalled
+        expr: rate(collector_rows_total[5m]) == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Collector has stopped inserting rows"
+          description: "collector_rows_total has not grown in the last 5 minutes."
