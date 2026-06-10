@@ -1,9 +1,19 @@
 import os
 import time
 import psycopg2
+import logging
+from pythonjsonlogger.json import JsonFormatter 
 from threading import Thread
 from flask import Flask, jsonify, g, request
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
+
+# Structured logging setup
+
+logger = logging.getLogger("telemetry-app")
+handler = logging.StreamHandler()
+handler.setFormatter(JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 app = Flask(__name__)
 
@@ -66,7 +76,7 @@ def _record_request_metrics(response):
 # ------------------------------------------------------------------
 def metrics_collector_daemon():
     """Background worker that samples system load and commits it to PostgreSQL."""
-    print("Initializing background metrics collector daemon...", flush=True)
+    logger.info("Initializing background metrics collector daemon...")
 
     # Simple retry loop to wait for PostgreSQL container to finish booting up
     while True:
@@ -90,10 +100,10 @@ def metrics_collector_daemon():
             conn.commit()
             cursor.close()
             conn.close()
-            print("Successfully connected to PostgreSQL. Storage table is ready.", flush=True)
+            logger.info("Successfully connected to PostgreSQL. Storage table is ready.")
             break
         except psycopg2.OperationalError:
-            print("Waiting for database tier to accept connections...", flush=True)
+            logger.info("Waiting for database tier to accept connections...")
             time.sleep(2)
 
     # Core collection loop
@@ -131,13 +141,13 @@ def metrics_collector_daemon():
                     conn.commit()
                     cursor.close()
                     conn.close()
-                    print("Retention pruning complete: removed rows older than 30 days.", flush=True)
+                    logger.info("Retention pruning complete: removed rows older than 30 days.")
                 except Exception as e:
-                    print(f"Retention pruning error: {e}", flush=True)
+                    logger.error(f"Retention pruning error: {e}")
                 last_prune = time.time()
 
         except Exception as e:
-            print(f"Error in metrics collector daemon: {e}", flush=True)
+            logger.error(f"Error in metrics collector daemon: {e}")
 
         # Sample the host system resources every 2 seconds
         time.sleep(2)
