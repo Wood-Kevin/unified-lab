@@ -39,6 +39,10 @@ db_row_count = Gauge(
     'db_row_count',
     'Total number of rows in system_telemetry'
 )
+db_size_bytes = Gauge(
+    'db_size_bytes',
+    'Total size of the telemetry database in bytes'
+)
 
 
 # ------------------------------------------------------------------
@@ -79,6 +83,10 @@ def metrics_collector_daemon():
                     load_15min REAL
                 );
             """)
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_telemetry_timestamp
+                ON system_telemetry(timestamp);
+            """)
             conn.commit()
             cursor.close()
             conn.close()
@@ -89,6 +97,7 @@ def metrics_collector_daemon():
             time.sleep(2)
 
     # Core collection loop
+    last_prune = time.time()
     while True:
         try:
             # Grab native Linux kernel load averages
@@ -110,6 +119,22 @@ def metrics_collector_daemon():
 
             collector_rows_total.inc()
             collector_last_write_unix.set(time.time())
+
+            # Prune rows older than 30 days once per hour
+            if time.time() - last_prune >= 3600:
+                try:
+                    conn = psycopg2.connect(DB_DSN)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "DELETE FROM system_telemetry WHERE timestamp < NOW() - INTERVAL '30 days';"
+                    )
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+                    print("Retention pruning complete: removed rows older than 30 days.", flush=True)
+                except Exception as e:
+                    print(f"Retention pruning error: {e}", flush=True)
+                last_prune = time.time()
 
         except Exception as e:
             print(f"Error in metrics collector daemon: {e}", flush=True)
@@ -184,6 +209,8 @@ def metrics():
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM system_telemetry;")
             db_row_count.set(cursor.fetchone()[0])
+            cursor.execute("SELECT pg_database_size('telemetry');")
+            db_size_bytes.set(cursor.fetchone()[0])
             cursor.close()
             conn.close()
             db_connected.set(1)

@@ -52,9 +52,11 @@ services:
     - ./prometheus.yml:/etc/prometheus/prometheus.yml
     - ./prometheus/rules:/etc/prometheus/rules
     - promdata:/prometheus
-    command: 
+    command:
     - '--config.file=/etc/prometheus/prometheus.yml'
     - '--storage.tsdb.path=/prometheus'
+    - '--storage.tsdb.retention.time=30d'
+    - '--storage.tsdb.retention.size=512MB'
     ports:
     - "9090:9090" # Exposes the Prometheus UI so we can access it over MagicDNS
     networks:

@@ -394,6 +394,49 @@
         },
         "overrides": []
       }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "DB Size",
+      "description": "Total on-disk size of the telemetry database.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "expr": "db_size_bytes",
+          "legendFormat": "DB size",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "unit": "decbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 104857600 },
+              { "color": "red",    "value": 524288000 }
+            ]
+          }
+        },
+        "overrides": []
+      }
     }
   ]
 }
